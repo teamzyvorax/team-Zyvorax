@@ -22,5 +22,9 @@
   "minSdkVersion": 23,
   "targetSdkVersion": 35,
   "fullScopeUrl": "https://team-zyvorax-api.onrender.com/",
-  "fallbackType": "customtabs"
+  "fallbackType": "customtabs",
+  "signingKey": {
+    "path": "android/ci-release.keystore",
+    "alias": "teamzyvorax"
+  }
 }
