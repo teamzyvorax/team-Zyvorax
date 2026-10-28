@@ -16,5 +16,9 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run build
+      - run: npm test
       - run: node --check server/index.js
       - run: node --check server/db.js
+      - run: node --check server/platform.js
+      - run: node --check server/platform-core.js
+      - run: node --check src/platform.js
