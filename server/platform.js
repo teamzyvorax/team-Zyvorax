@@ -11,7 +11,7 @@ export function createPlatformRouter({query,env=process.env,fetchImpl=fetch}){
   if(!provider)return s.json({mode:'local-assistant',reply:localAssistantReply(p.data.message),notice:'Add GROQ_API_KEY for free-tier Groq access, or OPENAI_API_KEY for OpenAI, in the server environment.'});
   const apiKey=provider==='groq'?env.GROQ_API_KEY:env.OPENAI_API_KEY;
   const endpoint=provider==='groq'?'https://api.groq.com/openai/v1/chat/completions':'https://api.openai.com/v1/chat/completions';
-  const model=provider==='groq'?(env.GROQ_MODEL||'llama-3.3-70b-versatile'):(env.OPENAI_MODEL||'gpt-4o-mini');
+  const model=provider==='groq'?(env.GROQ_MODEL||'openai/gpt-oss-120b'):(env.OPENAI_MODEL||'gpt-4o-mini');
   try{const response=await fetchImpl(endpoint,{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model,temperature:.3,max_tokens:900,messages:[{role:'system',content:'You are ZyvoraX AI, a practical software/product assistant. Be secure-by-default and never claim an action succeeded unless verified.'},...(p.data.history||[]),{role:'user',content:p.data.message}]}),signal:AbortSignal.timeout(25000)});
    const d=await response.json().catch(()=>({}));
    if(!response.ok){const e=d.error||{};const code=String(e.code||'');const type=String(e.type||'');console.error(`[${provider} API] request failed`,{status:response.status,code:code||null,type:type||null,param:e.param||null,requestId:response.headers.get('x-request-id')||response.headers.get('x-groq-request-id')||null});
