@@ -47,7 +47,7 @@ jobs:
           bubblewrap doctor
 
       - name: Generate Android project
-        run: bubblewrap update --manifest=android
+        run: bubblewrap update --manifest=android/twa-manifest.json
 
       - name: Create CI signing key
         run: |
@@ -63,7 +63,7 @@ jobs:
           export BUBBLEWRAP_KEYSTORE_PASSWORD=changeit
           export BUBBLEWRAP_KEY_PASSWORD=changeit
           bubblewrap build \
-            --manifest=android \
+            --manifest=android/twa-manifest.json \
             --signingKeyPath=android/ci-release.keystore \
             --signingKeyAlias=teamzyvorax
 
