@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query, initDb } from './db.js';
 import { createPlatformRouter } from './platform.js';
+import { verifyOAuthState } from './oauth-security.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
@@ -20,7 +21,8 @@ const DIST_DIR = path.resolve(__dirname, '../dist');
 
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(CLIENT_ORIGIN ? cors({ origin: CLIENT_ORIGIN, credentials: true }) : cors({ origin: true, credentials: true }));
+// Same-origin requests need no CORS headers. Enable credentialed CORS only for an explicit trusted origin.
+if (CLIENT_ORIGIN) app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 const authLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false });
@@ -58,7 +60,6 @@ function cookie(req, name) { const raw = req.headers.cookie || ''; const item = 
 function setCookie(res, name, value, maxAge=600) { res.setHeader('Set-Cookie', `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax; Secure`); }
 function clearCookie(res, name) { res.setHeader('Set-Cookie', `${name}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax; Secure`); }
 function stateToken(provider) { return jwt.sign({ provider, nonce: crypto.randomBytes(16).toString('hex') }, JWT_SECRET, { expiresIn: '10m' }); }
-function verifyState(value, provider) { const s=jwt.verify(value, JWT_SECRET); if(s.provider!==provider) throw Error('Invalid OAuth state'); return s; }
 function newSessionToken(){return crypto.randomBytes(32).toString('base64url');}
 async function createSession(user,req){const raw=newSessionToken();const hash=crypto.createHash('sha256').update(raw).digest('hex');await query("INSERT INTO sessions(user_id,token_hash,user_agent,ip_address,label,expires_at) VALUES($1,$2,$3,$4,$5,NOW()+INTERVAL '30 days')",[user.id,hash,String(req.get('user-agent')||'').slice(0,500),String(req.ip||'').slice(0,100),'Browser session']);setCookie(req.res,'__Host-zyvorax_session',raw,60*60*24*30);return raw;}
 function sessionCookieClear(res){clearCookie(res,'__Host-zyvorax_session');}
@@ -90,7 +91,7 @@ async function oauthUser(provider, code, req) {
     const t=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({code,client_id:cfg.id,client_secret:cfg.secret,redirect_uri,grant_type:'authorization_code'})});
     const td=await t.json(); if(!t.ok)throw Error(td.error_description||'Google token exchange failed');
     const r=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:`Bearer ${td.access_token}`}}); profile=await r.json();
-    if(!r.ok||!profile.sub||!profile.email)throw Error('Google account did not return a usable email');
+    if(!r.ok||!profile.sub||!profile.email||profile.email_verified!==true)throw Error('Google account must provide a verified email');
     return {id:String(profile.sub),email:profile.email.toLowerCase()};
   }
   if(provider==='github'){
@@ -102,15 +103,15 @@ async function oauthUser(provider, code, req) {
   }
   const t=await fetch('https://discord.com/api/oauth2/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:cfg.id,client_secret:cfg.secret,code,redirect_uri,grant_type:'authorization_code'})});
   const td=await t.json(); if(!t.ok||!td.access_token)throw Error(td.error_description||'Discord token exchange failed');
-  const r=await fetch('https://discord.com/api/users/@me',{headers:{Authorization:`Bearer ${td.access_token}`}});const u=await r.json();if(!r.ok||!u.id||!u.email)throw Error('Discord account did not return a usable email');return {id:String(u.id),email:u.email.toLowerCase()};
+  const r=await fetch('https://discord.com/api/users/@me',{headers:{Authorization:`Bearer ${td.access_token}`}});const u=await r.json();if(!r.ok||!u.id||!u.email||u.verified!==true)throw Error('Discord account must provide a verified email');return {id:String(u.id),email:u.email.toLowerCase()};
 }
 
 app.get('/api/auth/:provider/callback',async(req,res)=>{
-  const {provider}=req.params; try { if(!providers[provider])throw Error('Unsupported OAuth provider'); verifyState(cookie(req,'zyvorax_oauth_state'),provider); clearCookie(res,'zyvorax_oauth_state'); const p=await oauthUser(provider,String(req.query.code||''),req); let account=(await query('SELECT user_id FROM auth_accounts WHERE provider=$1 AND provider_user_id=$2',[provider,p.id])).rows[0]; let user;
+  const {provider}=req.params; try { if(!providers[provider])throw Error('Unsupported OAuth provider'); verifyOAuthState(cookie(req,'zyvorax_oauth_state'),String(req.query.state||''),provider,JWT_SECRET); clearCookie(res,'zyvorax_oauth_state'); const p=await oauthUser(provider,String(req.query.code||''),req); let account=(await query('SELECT user_id FROM auth_accounts WHERE provider=$1 AND provider_user_id=$2',[provider,p.id])).rows[0]; let user;
     if(account) user=(await query('SELECT id,email,created_at FROM users WHERE id=$1',[account.user_id])).rows[0];
     if(!user){ user=(await query('SELECT id,email,created_at FROM users WHERE email=$1',[p.email])).rows[0]; if(!user) user=(await query('INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING id,email,created_at',[p.email,await bcrypt.hash(crypto.randomBytes(32).toString('hex'),12)])).rows[0]; await query('INSERT INTO auth_accounts(user_id,provider,provider_user_id,email) VALUES($1,$2,$3,$4) ON CONFLICT(provider,provider_user_id) DO UPDATE SET email=EXCLUDED.email',[user.id,provider,p.id,p.email]); }
     setCookie(res,'zyvorax_oauth_session',sign(user),60); res.redirect(`${origin(req)}/?oauth=success`);
-  } catch(error){console.error('OAuth callback failed',error);clearCookie(res,'zyvorax_oauth_state');res.redirect(`${origin(req)}/?oauth=error&message=${encodeURIComponent(error.message||'OAuth sign-in failed')}`);}
+  } catch(error){console.error('OAuth callback failed',error);clearCookie(res,'zyvorax_oauth_state');res.redirect(`${origin(req)}/?oauth=error&message=${encodeURIComponent('Social sign-in failed. Check provider configuration and try again.')}`);}
 });
 app.get('/api/auth/oauth-session',async(req,res)=>{const token=cookie(req,'zyvorax_oauth_session');if(!token)return res.status(401).json({error:'No OAuth session'});clearCookie(res,'zyvorax_oauth_session');try{const payload=jwt.verify(token,JWT_SECRET);const user=(await query('SELECT id,email,created_at FROM users WHERE id=$1',[payload.sub])).rows[0];if(!user)return res.status(401).json({error:'Account not found'});await createSession(user,req);res.json({user});}catch{res.status(401).json({error:'OAuth session expired'});}});
 
