@@ -37,11 +37,13 @@ jobs:
 
       - name: Configure Bubblewrap non-interactively
         run: |
+          if [ ! -e "$ANDROID_HOME/tools" ] && [ -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+            ln -s "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools"
+          fi
           mkdir -p "$HOME/.bubblewrap"
           cat > "$HOME/.bubblewrap/config.json" <<EOF
           {"jdkPath":"$JAVA_HOME","androidSdkPath":"$ANDROID_HOME"}
           EOF
-          cat "$HOME/.bubblewrap/config.json"
           bubblewrap doctor
 
       - name: Generate Android project
