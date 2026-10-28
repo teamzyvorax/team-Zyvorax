@@ -1,3 +1,4 @@
+// Secure session migration runner. CI validates this script before applying it.
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 
