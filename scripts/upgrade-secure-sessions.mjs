@@ -12,7 +12,7 @@ s=s.replace(oldAuth,newAuth);
 
 const marker = `function origin(req) { return CLIENT_ORIGIN || \`${'${req.protocol}'}://${'${req.get(\'host\')}' }\`; }`;
 const insertAfter = `function verifyState(value, provider) { const s=jwt.verify(value, JWT_SECRET); if(s.provider!==provider) throw Error('Invalid OAuth state'); return s; }`;
-const sessionFns = `${insertAfter}\nfunction newSessionToken(){return crypto.randomBytes(32).toString('base64url');}\nasync function createSession(user,req){const raw=newSessionToken();const hash=crypto.createHash('sha256').update(raw).digest('hex');await query('INSERT INTO sessions(user_id,token_hash,user_agent,ip_address,label,expires_at) VALUES($1,$2,$3,$4,$5,NOW()+INTERVAL \'30 days\')',[user.id,hash,String(req.get('user-agent')||'').slice(0,500),String(req.ip||'').slice(0,100),'Browser session']);setCookie(req.res,'__Host-zyvorax_session',raw,60*60*24*30);return raw;}\nfunction sessionCookieClear(res){clearCookie(res,'__Host-zyvorax_session');}`;
+const sessionFns = `${insertAfter}\nfunction newSessionToken(){return crypto.randomBytes(32).toString('base64url');}\nasync function createSession(user,req){const raw=newSessionToken();const hash=crypto.createHash('sha256').update(raw).digest('hex');await query("INSERT INTO sessions(user_id,token_hash,user_agent,ip_address,label,expires_at) VALUES($1,$2,$3,$4,$5,NOW()+INTERVAL '30 days')",[user.id,hash,String(req.get('user-agent')||'').slice(0,500),String(req.ip||'').slice(0,100),'Browser session']);setCookie(req.res,'__Host-zyvorax_session',raw,60*60*24*30);return raw;}\nfunction sessionCookieClear(res){clearCookie(res,'__Host-zyvorax_session');}`;
 if (!s.includes(insertAfter)) throw new Error('state function marker not found');
 s=s.replace(insertAfter,sessionFns);
 
