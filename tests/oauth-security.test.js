@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
-import { verifyOAuthState } from '../server/oauth-security.js';
+import { verifyOAuthState, verifiedGitHubEmail } from '../server/oauth-security.js';
 
 const secret = 'test-only-secret-that-is-long-enough';
 const state = jwt.sign({ provider: 'google', nonce: 'random-nonce' }, secret, { expiresIn: '10m' });
@@ -19,4 +19,9 @@ test('rejects state signed for another provider', () => {
 test('rejects expired or invalid tokens', () => {
   const expired = jwt.sign({ provider: 'google' }, secret, { expiresIn: -1 });
   assert.throws(() => verifyOAuthState(expired, expired, 'google', secret));
+});
+
+test('selects only verified GitHub email addresses', () => {
+  assert.equal(verifiedGitHubEmail([{email:'unverified@example.com',primary:true,verified:false}]), '');
+  assert.equal(verifiedGitHubEmail([{email:'secondary@example.com',verified:true},{email:'primary@example.com',primary:true,verified:true}]), 'primary@example.com');
 });

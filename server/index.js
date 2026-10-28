@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query, initDb } from './db.js';
 import { createPlatformRouter } from './platform.js';
-import { verifyOAuthState } from './oauth-security.js';
+import { verifyOAuthState, verifiedGitHubEmail } from './oauth-security.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
@@ -98,7 +98,7 @@ async function oauthUser(provider, code, req) {
     const t=await fetch('https://github.com/login/oauth/access_token',{method:'POST',headers:{accept:'application/json','content-type':'application/json'},body:JSON.stringify({client_id:cfg.id,client_secret:cfg.secret,code,redirect_uri})});
     const td=await t.json(); if(!t.ok||!td.access_token)throw Error(td.error||'GitHub token exchange failed');
     const r=await fetch('https://api.github.com/user',{headers:{Authorization:`Bearer ${td.access_token}`,Accept:'application/vnd.github+json','User-Agent':'Team-ZyvoraX'}}); const u=await r.json(); if(!r.ok)throw Error('GitHub profile lookup failed');
-    let email=u.email; if(!email){const er=await fetch('https://api.github.com/user/emails',{headers:{Authorization:`Bearer ${td.access_token}`,Accept:'application/vnd.github+json','User-Agent':'Team-ZyvoraX'}});const es=await er.json();email=es.find(x=>x.primary&&x.verified)?.email||es.find(x=>x.verified)?.email;}
+    const er=await fetch('https://api.github.com/user/emails',{headers:{Authorization:`Bearer ${td.access_token}`,Accept:'application/vnd.github+json','User-Agent':'Team-ZyvoraX'}});const es=await er.json();const email=er.ok?verifiedGitHubEmail(es):'';
     if(!email)throw Error('GitHub account needs a verified email'); return {id:String(u.id),email:email.toLowerCase()};
   }
   const t=await fetch('https://discord.com/api/oauth2/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:cfg.id,client_secret:cfg.secret,code,redirect_uri,grant_type:'authorization_code'})});
