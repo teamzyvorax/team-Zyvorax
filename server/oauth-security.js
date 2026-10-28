@@ -7,3 +7,11 @@ export function verifyOAuthState(cookieState, queryState, provider, secret) {
   if (payload.provider !== provider) throw new Error('Invalid OAuth state');
   return payload;
 }
+
+// Never trust the public profile email; select only an explicitly verified email from GitHub's email API.
+export function verifiedGitHubEmail(emails) {
+  if (!Array.isArray(emails)) return '';
+  return emails.find(item => item?.primary === true && item?.verified === true)?.email
+    || emails.find(item => item?.verified === true)?.email
+    || '';
+}
