@@ -1,10 +1,13 @@
 services:
   - type: web
-    name: team-zyvorax-api
+    name: team-zyvorax
     runtime: node
+    region: singapore
     plan: free
-    buildCommand: npm install
-    startCommand: npm run api
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
