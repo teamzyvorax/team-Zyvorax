@@ -1,0 +1,33 @@
+name: Apply secure session migration
+on:
+  push:
+    paths:
+      - 'scripts/upgrade-secure-sessions.mjs'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate migration script
+        run: node --check scripts/upgrade-secure-sessions.mjs
+      - name: Apply migration
+        run: node scripts/upgrade-secure-sessions.mjs
+      - name: Verify server syntax
+        run: node --check server/index.js
+      - name: Commit migrated server
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/index.js
+          if git diff --cached --quiet; then
+            echo "No migration changes needed"
+          else
+            git commit -m "feat(auth): enable secure revocable sessions"
+            git push
+          fi
