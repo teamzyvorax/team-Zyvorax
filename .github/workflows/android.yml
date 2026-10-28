@@ -35,14 +35,15 @@ jobs:
       - name: Install Bubblewrap
         run: npm install --global @bubblewrap/cli
 
-      - name: Configure Bubblewrap toolchain
+      - name: Create CI Bubblewrap config
         run: |
-          bubblewrap updateConfig --jdkPath="$JAVA_HOME" --androidSdkPath="$ANDROID_HOME"
-          bubblewrap doctor
+          printf '%s\n' '{"jdkPath":"'"$JAVA_HOME"'","androidSdkPath":"'"$ANDROID_HOME"'"}' > android/bubblewrap-config.json
+
+      - name: Verify Bubblewrap toolchain
+        run: bubblewrap doctor --config=android/bubblewrap-config.json
 
       - name: Generate Android project
-        run: |
-          bubblewrap update --manifest=android
+        run: bubblewrap update --manifest=android --config=android/bubblewrap-config.json
 
       - name: Create CI signing key
         run: |
@@ -59,6 +60,7 @@ jobs:
           export BUBBLEWRAP_KEY_PASSWORD=changeit
           bubblewrap build \
             --manifest=android \
+            --config=android/bubblewrap-config.json \
             --signingKeyPath=android/ci-release.keystore \
             --signingKeyAlias=teamzyvorax
 
