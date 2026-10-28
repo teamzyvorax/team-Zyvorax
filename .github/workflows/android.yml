@@ -1,0 +1,64 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/twa-manifest.json'
+      - '.github/workflows/android.yml'
+      - 'public/manifest.webmanifest'
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Bubblewrap
+        run: npm install --global @bubblewrap/cli
+
+      - name: Generate Android project
+        run: |
+          mkdir -p android/generated
+          bubblewrap update --manifest=android
+
+      - name: Create CI signing key
+        run: |
+          KEYTOOL=$(find "$HOME/.bubblewrap" -type f -name keytool | head -n 1)
+          if [ -z "$KEYTOOL" ]; then echo 'keytool not found'; exit 1; fi
+          "$KEYTOOL" -genkeypair -v \
+            -keystore android/ci-release.keystore \
+            -alias teamzyvorax \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass changeit -keypass changeit \
+            -dname "CN=Team ZyvoraX, OU=Mobile, O=Team ZyvoraX, L=Surat, ST=Gujarat, C=IN"
+
+      - name: Build signed APK and AAB
+        run: |
+          BUBBLEWRAP_KEYSTORE_PASSWORD=changeit \
+          BUBBLEWRAP_KEY_PASSWORD=changeit \
+          bubblewrap build \
+            --manifest=android \
+            --signingKeyPath=android/ci-release.keystore \
+            --signingKeyAlias=teamzyvorax
+
+      - name: Collect outputs
+        run: |
+          mkdir -p android-artifacts
+          find android -type f \( -name '*signed.apk' -o -name '*.aab' \) -print -exec cp {} android-artifacts/ \;
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: team-zyvorax-android
+          path: android-artifacts/
+          if-no-files-found: error
