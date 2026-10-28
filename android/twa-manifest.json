@@ -19,7 +19,7 @@
   "splashScreenFadeOutDuration": 300,
   "appVersionName": "0.3.1",
   "appVersionCode": 1,
-  "minSdkVersion": 23,
+  "minSdkVersion": 24,
   "targetSdkVersion": 35,
   "fullScopeUrl": "https://team-zyvorax-api.onrender.com/",
   "fallbackType": "customtabs",
