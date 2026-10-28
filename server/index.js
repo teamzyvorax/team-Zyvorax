@@ -9,6 +9,7 @@ import { z } from 'zod';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query, initDb } from './db.js';
+import { createPlatformRouter } from './platform.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
@@ -61,6 +62,7 @@ function verifyState(value, provider) { const s=jwt.verify(value, JWT_SECRET); i
 function newSessionToken(){return crypto.randomBytes(32).toString('base64url');}
 async function createSession(user,req){const raw=newSessionToken();const hash=crypto.createHash('sha256').update(raw).digest('hex');await query("INSERT INTO sessions(user_id,token_hash,user_agent,ip_address,label,expires_at) VALUES($1,$2,$3,$4,$5,NOW()+INTERVAL '30 days')",[user.id,hash,String(req.get('user-agent')||'').slice(0,500),String(req.ip||'').slice(0,100),'Browser session']);setCookie(req.res,'__Host-zyvorax_session',raw,60*60*24*30);return raw;}
 function sessionCookieClear(res){clearCookie(res,'__Host-zyvorax_session');}
+app.use('/api/platform', auth, createPlatformRouter({ query }));
 
 app.get('/api/health', async (_req, res) => { try { await query('SELECT 1'); res.json({ok:true,service:'team-zyvorax-api',database:'connected'}); } catch { res.status(503).json({ok:false,service:'team-zyvorax-api',database:'unavailable'}); } });
 
