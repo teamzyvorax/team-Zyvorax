@@ -35,22 +35,18 @@ jobs:
       - name: Install Bubblewrap
         run: npm install --global @bubblewrap/cli
 
-      - name: Verify Android toolchain
+      - name: Configure Bubblewrap toolchain
         run: |
-          java -version
-          test -d "$ANDROID_HOME"
-          ls "$ANDROID_HOME/platform-tools" >/dev/null
-          ls "$ANDROID_HOME/build-tools" | tail -1
+          bubblewrap updateConfig --jdkPath="$JAVA_HOME" --androidSdkPath="$ANDROID_HOME"
+          bubblewrap doctor
 
       - name: Generate Android project
         run: |
-          bubblewrap doctor || true
           bubblewrap update --manifest=android
 
       - name: Create CI signing key
         run: |
-          KEYTOOL=$(command -v keytool)
-          "$KEYTOOL" -genkeypair -v \
+          keytool -genkeypair -v \
             -keystore android/ci-release.keystore \
             -alias teamzyvorax \
             -keyalg RSA -keysize 2048 -validity 10000 \
