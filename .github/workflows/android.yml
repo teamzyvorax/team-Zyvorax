@@ -70,11 +70,12 @@ jobs:
       - name: Collect outputs
         run: |
           mkdir -p android-artifacts
-          find android -type f \( -name '*signed.apk' -o -name '*.aab' \) -print -exec cp {} android-artifacts/ \;
+          find . -maxdepth 3 -type f \( -name 'app-release-signed.apk' -o -name 'app-release-bundle.aab' \) -print -exec cp {} android-artifacts/ \;
+          ls -lh android-artifacts/
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
           name: team-zyvorax-android
-          path: android-artifacts/
+          path: android-artifacts/*
           if-no-files-found: error
