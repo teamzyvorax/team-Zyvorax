@@ -1,0 +1,14 @@
+{
+  "name": "Team ZyvoraX",
+  "short_name": "ZyvoraX",
+  "description": "Team ZyvoraX adaptive workspace — projects, tasks and intent-driven work.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#07090f",
+  "background_color": "#07090f",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
