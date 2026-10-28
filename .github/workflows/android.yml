@@ -47,7 +47,7 @@ jobs:
           bubblewrap doctor
 
       - name: Generate Android project
-        run: bubblewrap update --manifest=android/twa-manifest.json
+        run: bubblewrap update --skipVersionUpgrade --manifest=android/twa-manifest.json
 
       - name: Create CI signing key
         run: |
